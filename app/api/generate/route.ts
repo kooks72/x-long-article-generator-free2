@@ -142,7 +142,7 @@ ${tools ? `推奨ツール: ${tools}` : ''}
             });
         }
 
-        const modelName = 'gemini-1.5-flash-latest';
+        const modelName = 'gemini-1.5-flash';
         try {
             const genAIInstance = new GoogleGenerativeAI(finalApiKey);
             const model = genAIInstance.getGenerativeModel({ model: modelName });
