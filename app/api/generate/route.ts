@@ -141,28 +141,13 @@ ${tools ? `推奨ツール: ${tools}` : ''}
                 pattern: pattern
             });
         }
-        let usedModelName = 'gemini-1.5-flash';
         try {
-            let result;
-            try {
-                const genAIInstance = new GoogleGenerativeAI(finalApiKey);
-                const model = genAIInstance.getGenerativeModel({ model: usedModelName });
-                console.log(`Generating article with ${usedModelName} for ${theme || referenceUrl || 'direct text'}`);
-                result = await model.generateContent(systemPrompt);
-            } catch (initialError: any) {
-                // もし 1.5-flash が 404 エラー（アクセス権限なし等）を返した場合、自動で gemini-pro にフォールバックする
-                if (initialError.message?.includes('404')) {
-                    console.warn('gemini-1.5-flash が利用できないため、gemini-pro にフォールバックします。', initialError.message);
-                    usedModelName = 'gemini-pro';
-                    const genAIInstance = new GoogleGenerativeAI(finalApiKey);
-                    const model = genAIInstance.getGenerativeModel({ model: usedModelName });
-                    console.log(`Generating article with ${usedModelName} for ${theme || referenceUrl || 'direct text'}`);
-                    result = await model.generateContent(systemPrompt);
-                } else {
-                    throw initialError;
-                }
-            }
+            const genAIInstance = new GoogleGenerativeAI(finalApiKey);
+            const modelName = 'gemini-flash-latest';
+            const model = genAIInstance.getGenerativeModel({ model: modelName });
 
+            console.log(`Generating article with ${modelName} for ${theme || referenceUrl || 'direct text'}`);
+            const result = await model.generateContent(systemPrompt);
             const response = await result.response;
             const text = response.text();
 
@@ -175,13 +160,8 @@ ${tools ? `推奨ツール: ${tools}` : ''}
             console.error('Gemini API Error (Full):', apiError);
             let message = '記事の生成中にエラーが発生しました。APIキーが無効か、一時的なネットワークエラーの可能性があります。';
             
-            if (apiError.message?.includes('404')) {
-                message = `指定されたモデル (${usedModelName}) が見つかりません。APIキーの権限を確認してください。`;
-            } else if (apiError.message?.includes('429')) {
-                message = 'リクエスト上限に達しました。無料プランの制限のため、しばらく待つか別のキーをお試しください。';
-                if (apiError.message?.includes('RPM')) message += ' (1分あたりの回数制限)';
-                if (apiError.message?.includes('RPD')) message += ' (1日あたりの回数制限)';
-                if (apiError.message?.includes('TPM')) message += ' (1分あたりの文字数制限)';
+            if (apiError.message?.includes('429')) {
+                message = 'リクエスト上限に達しました。しばらく待つか、別のAPIキーをお試しください。';
             } else if (apiError.message?.includes('API key not valid')) {
                 message = 'APIキーが無効です。正しいキーを入力してください。';
             }
