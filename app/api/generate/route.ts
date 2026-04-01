@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-const apiKey = process.env.GEMINI_API_KEY || '';
-const genAI = new GoogleGenerativeAI(apiKey);
 
 const PATTERN_PROMPTS: Record<string, string> = {
     resolution: '「Solution」スタイル：読者が抱える特定の悩みや課題に対し、誠実かつ論理的な解決策を提示し、確かな価値を提供する構成で執筆してください。',
@@ -37,7 +35,20 @@ async function fetchUrlContent(url: string): Promise<string> {
 
 export async function POST(req: NextRequest) {
     try {
-        const { platform, theme, target, purpose, tools, service, price, pattern, referenceUrl, sourceText } = await req.json();
+        const body = await req.json();
+        const { platform, theme, target, purpose, tools, service, price, pattern, referenceUrl, sourceText } = body;
+        const requestApiKey = body.apiKey;
+
+        // APIキーの選定：リクエストボディのキーを優先し、なければ環境変数を使用
+        let finalApiKey = requestApiKey || process.env.GEMINI_API_KEY || '';
+
+        // 複数のAPIキーが入力されている場合（カンマまたは改行区切り）、ランダムに1つ選択
+        if (finalApiKey.includes(',') || finalApiKey.includes('\n')) {
+            const keys = finalApiKey.split(/[,\n]/).map((k: string) => k.trim()).filter(Boolean);
+            if (keys.length > 0) {
+                finalApiKey = keys[Math.floor(Math.random() * keys.length)];
+            }
+        }
 
         // 必須チェックの緩和：referenceUrl または sourceText がある場合はtheme/targetは任意
         if (!referenceUrl && !sourceText && (!theme || !target)) {
@@ -115,8 +126,8 @@ ${platformInstructions}
 それでは、読者の本棚に一生残るような、圧倒的な品質の1万文字原稿を執筆してください。
 `;
 
-        if (!apiKey) {
-            console.warn('GEMINI_API_KEY が未設定です。');
+        if (!finalApiKey) {
+            console.warn('APIキーが未設定です。');
             return NextResponse.json({
                 content: `【テストモード】
 # ${theme || '再構成原稿'}
@@ -132,7 +143,7 @@ ${tools ? `推奨ツール: ${tools}` : ''}
         }
 
         try {
-            const genAIInstance = new GoogleGenerativeAI(apiKey);
+            const genAIInstance = new GoogleGenerativeAI(finalApiKey);
             const modelName = 'gemini-flash-latest';
             const model = genAIInstance.getGenerativeModel({ model: modelName });
 
