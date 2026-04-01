@@ -144,7 +144,7 @@ ${tools ? `推奨ツール: ${tools}` : ''}
 
         try {
             const genAIInstance = new GoogleGenerativeAI(finalApiKey);
-            const modelName = 'gemini-flash-latest';
+            const modelName = 'gemini-1.5-flash';
             const model = genAIInstance.getGenerativeModel({ model: modelName });
 
             console.log(`Generating article with ${modelName} for ${theme || referenceUrl || 'direct text'}`);
@@ -162,12 +162,16 @@ ${tools ? `推奨ツール: ${tools}` : ''}
             let message = '記事の生成中にエラーが発生しました。APIキーが無効か、一時的なネットワークエラーの可能性があります。';
             
             if (apiError.message?.includes('404')) {
-                message = `指定されたモデル (gemini-1.5-flash) が見つかりません。APIキーの権限を確認してください。Raw Error: ${apiError.message}`;
+                message = `指定されたモデル (gemini-1.5-flash) が見つかりません。APIキーの権限を確認してください。`;
             } else if (apiError.message?.includes('429')) {
                 message = 'リクエスト上限に達しました。しばらく待ってから再試行してください。';
+            } else if (apiError.message?.includes('API key not valid')) {
+                message = 'APIキーが無効です。正しいキーを入力してください。';
             }
             
-            return NextResponse.json({ error: message, details: apiError.message }, { status: 500 });
+            return NextResponse.json({ 
+                error: `${message} (詳細: ${apiError.message})` 
+            }, { status: 500 });
         }
     } catch (error) {
         console.error('API Error:', error);
