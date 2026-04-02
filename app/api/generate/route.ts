@@ -26,10 +26,29 @@ async function fetchUrlContent(url: string): Promise<string> {
             .replace(/<[^>]+>/g, ' ')
             .replace(/\s+/g, ' ')
             .trim();
-        return cleanContent.substring(0, 6000); // プロンプトの制限を考慮して6000文字程度に制限
+        return cleanContent.substring(0, 4000); // 負荷軽減のため4000文字に制限
     } catch (error) {
         console.error('Fetch error:', error);
         return '';
+    }
+}
+
+async function withRetry<T>(
+    fn: () => Promise<T>,
+    retries = 3,
+    delay = 2000
+): Promise<T> {
+    try {
+        return await fn();
+    } catch (error: any) {
+        // 429 (Too Many Requests) または 一時的なサーバーエラー(503) の場合にリトライ
+        const isRetryable = error.message?.includes('429') || error.status === 429 || error.status === 503;
+        if (retries > 0 && isRetryable) {
+            console.log(`API Error (Status: ${error.status}). Retrying in ${delay}ms... (${retries} retries left)`);
+            await new Promise(resolve => setTimeout(resolve, delay));
+            return withRetry(fn, retries - 1, delay * 2);
+        }
+        throw error;
     }
 }
 
@@ -79,8 +98,8 @@ export async function POST(req: NextRequest) {
             : `
 【X (Twitter) 向け構成指示】
 読者の指を止める、以下の構成で出力してください：
-1. 冒頭的強烈なフック（140文字以内で、物語の核心を突く）
-2. 本文（1万文字規模の圧倒的な熱量と情報量）
+1. 冒頭前強烈なフック（140文字以内で、物語の核心を突く）
+2. 本文（5,000文字規模の圧倒的な熱量と情報量）
 3. インサイト：各見出し（##）の冒頭に、必ず読者の思考を深める1〜2行のメッセージを挿入すること。
 `;
 
@@ -96,7 +115,7 @@ ${price ? `- 価値提供の目安: ${price}` : ''}
 
         const sourcePrompt = contentToUse ? `
 【提供されたソースコンテンツ】
-以下のコンテンツを分析し、そのエッセンス（主張、事実、データ、インサイト）を完全に吸収した上で、指定されたスタイルとターゲットに合わせて、新しく独創的な1万文字の原稿として再構成（リライト・拡張）してください：
+以下のコンテンツを分析し、そのエッセンス（主張、事実、データ、インサイト）を完全に吸収した上で、指定されたスタイルとターゲットに合わせて、新しく独創的な5,000文字の原稿として再構成（リライト・拡張）してください：
 ---
 ${contentToUse}
 ---
@@ -104,12 +123,12 @@ ${contentToUse}
 
         const systemPrompt = `
 あなたは、クリエイターの思考を体系化し、読者の人生に影響を与える言葉を紡ぐプロのコンテンツアーキテクトです。
-${contentToUse ? '提供されたソースコンテンツを深く理解し、' : ''}ターゲット読者に対して、本質的な価値と信頼を届ける1万文字規模の原稿を執筆してください。
+${contentToUse ? '提供されたソースコンテンツを深く理解し、' : ''}ターゲット読者に対して、本質的な価値と信頼を届ける5,000文字規模の原稿を執筆してください。
 
 【共通の指針】
 - 言語: 日本語
 - トーン: 誠実、知的、深い洞察。過度な煽りは避け、言葉の質で勝負すること。
-- 文字数: **1万文字規模**を目指し、一文字一文字に価値を込めること。
+- 文字数: **5,000文字規模**を目指し、一文字一文字に価値を込めること。
 - 形式: マークダウン形式。
 
 【執筆の核】
@@ -143,11 +162,11 @@ ${tools ? `推奨ツール: ${tools}` : ''}
         }
         try {
             const genAIInstance = new GoogleGenerativeAI(finalApiKey);
-            const modelName = 'gemini-flash-latest';
+            const modelName = 'gemini-3.1-flash-lite-preview';
             const model = genAIInstance.getGenerativeModel({ model: modelName });
 
             console.log(`Generating article with ${modelName} for ${theme || referenceUrl || 'direct text'}`);
-            const result = await model.generateContent(systemPrompt);
+            const result = await withRetry(() => model.generateContent(systemPrompt));
             const response = await result.response;
             const text = response.text();
 
@@ -158,6 +177,10 @@ ${tools ? `推奨ツール: ${tools}` : ''}
             return NextResponse.json({ content: text });
         } catch (apiError: any) {
             console.error('Gemini API Error (Full):', apiError);
+            // 429エラーの詳細種別を特定するため、エラー情報を全て文字列に変換して出力
+            if (apiError.errorDetails) {
+                console.error('Error Details:', JSON.stringify(apiError.errorDetails, null, 2));
+            }
             let message = '記事の生成中にエラーが発生しました。APIキーが無効か、一時的なネットワークエラーの可能性があります。';
             
             if (apiError.message?.includes('429')) {
