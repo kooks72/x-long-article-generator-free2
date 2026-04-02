@@ -58,8 +58,8 @@ export async function POST(req: NextRequest) {
         const { platform, theme, target, purpose, tools, service, price, pattern, referenceUrl, sourceText } = body;
         const requestApiKey = body.apiKey;
 
-        // APIキーの選定：リクエストボディのキーを優先し、なければ環境変数を使用
-        let finalApiKey = requestApiKey || process.env.GEMINI_API_KEY || '';
+        // APIキーの選定：リクエストボディのキーのみを使用（サーバー側のキーは使用しない）
+        let finalApiKey = requestApiKey || '';
 
         // 複数のAPIキーが入力されている場合（カンマまたは改行区切り）、ランダムに1つ選択
         if (finalApiKey.includes(',') || finalApiKey.includes('\n')) {
@@ -146,23 +146,15 @@ ${platformInstructions}
 `;
 
         if (!finalApiKey) {
-            console.warn('APIキーが未設定です。');
+            console.warn('APIキーが未入力です。');
             return NextResponse.json({
-                content: `【テストモード】
-# ${theme || '再構成原稿'}
-（APIキーが未設定のため、デモ用構成を表示しています）
-
-## 【引き戻しフック】「この真実を知らないだけで、あなたは機会損失をしています。」
-${contentToUse ? `提供されたソース内容（${contentToUse.substring(0, 50)}...）を基に執筆された記事です。` : `ターゲット読者(${target})に向けた、${pattern}パターンの記事です。`}
-${service ? `おすすめ商品: ${service} (${price})` : ''}
-${tools ? `推奨ツール: ${tools}` : ''}
-`,
-                pattern: pattern
-            });
+                error: 'Gemini APIキーを入力してください。',
+                details: 'このアプリを利用するには、画面上の設定から自身のGemini APIキーを入力する必要があります。'
+            }, { status: 401 });
         }
         try {
             const genAIInstance = new GoogleGenerativeAI(finalApiKey);
-            const modelName = 'gemini-3.1-flash-lite-preview';
+            const modelName = 'gemini-2.0-flash';
             const model = genAIInstance.getGenerativeModel({ model: modelName });
 
             console.log(`Generating article with ${modelName} for ${theme || referenceUrl || 'direct text'}`);
