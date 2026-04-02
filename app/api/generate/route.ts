@@ -154,7 +154,7 @@ ${platformInstructions}
         }
         try {
             const genAIInstance = new GoogleGenerativeAI(finalApiKey);
-            const modelName = 'gemini-1.5-flash';
+            const modelName = 'gemini-3.1-flash-lite-preview';
             const model = genAIInstance.getGenerativeModel({ model: modelName });
 
             console.log(`Generating article with ${modelName} for ${theme || referenceUrl || 'direct text'}`);
