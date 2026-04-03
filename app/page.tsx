@@ -187,7 +187,7 @@ export default function Home() {
           </div>
           <p className="text-sm text-[#444] leading-relaxed">
             現在、期間限定で「Content Architecture AI」を一般公開中です。<br />
-            1万文字規模の圧倒的な原稿作成をご体験ください。
+            5,000文字規模の圧倒的な原稿作成をご体験ください。
           </p>
         </div>
 
