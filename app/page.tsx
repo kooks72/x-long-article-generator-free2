@@ -24,7 +24,7 @@ export default function Home() {
   const [apiKey, setApiKey] = useState('');
   const [keyword, setKeyword] = useState('');
   const [worries, setWorries] = useState('');
-  const [affiliateUrl, setAffiliateUrl] = useState('https://e-kantei.net/lp/news_10018/');
+  const [affiliateUrl, setAffiliateUrl] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState('');
   const [copiedText, setCopiedText] = useState(false);
