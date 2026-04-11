@@ -66,7 +66,8 @@ ${isMiddleLink ? '   ※ 見出し2の直後など、読者の興味が高まっ
 - WordPressに直接貼り付けられるHTML形式で出力してください。
 - Markdown記法（\`\`\`html や # など）は一切使用しないでください。
 - <h1>, <h2>, <h3>, <p>, <ul>, <li>, <a href="..."> などの適切なHTMLタグのみを使用してください。
-- CTAのリンクボタンは、<a href="${affiliateUrl}" style="background-color: #ff4500; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;"> という形式で、目立つように作成してください。
+- すべてのリンク（<a>タグ）には、必ず target="_blank" rel="nofollow noopener" を付与してください。
+- CTAのリンクボタンは、<a href="${affiliateUrl}" target="_blank" rel="nofollow noopener" style="background-color: #ff4500; color: white; padding: 15px 25px; text-decoration: none; border-radius: 5px; font-weight: bold; display: inline-block;"> という形式で、目立つように作成してください。
 `;
 
         try {
