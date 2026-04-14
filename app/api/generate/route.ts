@@ -72,19 +72,33 @@ ${isMiddleLink ? '   ※ 見出し2の直後など、読者の興味が高まっ
 
         try {
             const genAIInstance = new GoogleGenerativeAI(finalApiKey);
-            const modelName = 'gemini-3.1-flash-lite-preview';
-            const model = genAIInstance.getGenerativeModel({ 
-                model: modelName,
-                safetySettings: [
-                    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-                    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                ],
-            });
+            const safetySettings = [
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            ];
 
-            const result = await withRetry(() => model.generateContent(systemPrompt));
-            const response = await result.response;
+            // フォールバック付きの生成ロジック
+            let response;
+            try {
+                // 第一候補: Gemini 3.1 Flash Lite
+                const model = genAIInstance.getGenerativeModel({ 
+                    model: 'gemini-3.1-flash-lite-preview',
+                    safetySettings
+                });
+                const result = await withRetry(() => model.generateContent(systemPrompt));
+                response = await result.response;
+            } catch (firstError: any) {
+                console.warn('First model attempt failed, falling back to 1.5-flash:', firstError.message);
+                // 第二候補: Gemini 1.5 Flash（より汎用的なモデル）
+                const model = genAIInstance.getGenerativeModel({ 
+                    model: 'gemini-1.5-flash',
+                    safetySettings
+                });
+                const result = await withRetry(() => model.generateContent(systemPrompt));
+                response = await result.response;
+            }
 
             // 安全フィルターなどでブロックされた場合のハンドリング
             if (response.candidates && response.candidates[0]?.finishReason === 'SAFETY') {
@@ -104,12 +118,14 @@ ${isMiddleLink ? '   ※ 見出し2の直後など、読者の興味が高まっ
 
             return NextResponse.json({ content: text });
         } catch (apiError: any) {
-            console.error('Gemini API Error:', apiError);
-            let message = '記事の生成中にエラーが発生しました。';
+            console.error('Gemini API Ultimate Error:', apiError);
+            let message = '記事の生成中にエラーが発生しました。APIキーの有効期限や権限を再度ご確認ください。';
             if (apiError.message?.includes('429')) {
-                message = 'リクエスト上限に達しました。';
+                message = 'リクエスト上限に達しました。しばらく待ってから再試行してください。';
+            } else if (apiError.message) {
+                message += ` (詳細: ${apiError.message})`;
             }
-            return NextResponse.json({ error: message }, { status: 500 });
+            return NextResponse.json({ error: message, details: apiError.message }, { status: 500 });
         }
     } catch (error) {
         console.error('API Error:', error);

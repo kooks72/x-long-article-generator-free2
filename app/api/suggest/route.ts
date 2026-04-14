@@ -37,18 +37,33 @@ export async function POST(req: NextRequest) {
 
         try {
             const genAIInstance = new GoogleGenerativeAI(finalApiKey);
-            const model = genAIInstance.getGenerativeModel({ 
-                model: 'gemini-3.1-flash-lite-preview',
-                safetySettings: [
-                    { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                    { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
-                    { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                    { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
-                ],
-            });
+            const safetySettings = [
+                { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_NONE },
+                { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_NONE },
+            ];
 
-            const result = await model.generateContent(systemPrompt);
-            const response = await result.response;
+            // フォールバック付きの生成ロジック
+            let response;
+            try {
+                // 第一候補: Gemini 3.1
+                const model = genAIInstance.getGenerativeModel({ 
+                    model: 'gemini-3.1-flash-lite-preview',
+                    safetySettings
+                });
+                const result = await model.generateContent(systemPrompt);
+                response = await result.response;
+            } catch (firstError: any) {
+                console.warn('Suggest API: First model attempt failed, falling back to 1.5-flash:', firstError.message);
+                // 第二候補: Gemini 1.5 Flash
+                const model = genAIInstance.getGenerativeModel({ 
+                    model: 'gemini-1.5-flash',
+                    safetySettings
+                });
+                const result = await model.generateContent(systemPrompt);
+                response = await result.response;
+            }
             
             // 安全フィルターなどでブロックされた場合のハンドリング
             if (response.candidates && response.candidates[0]?.finishReason === 'SAFETY') {
@@ -59,12 +74,11 @@ export async function POST(req: NextRequest) {
             }
 
             const text = response.text().trim();
-
             return NextResponse.json({ suggestion: text });
         } catch (apiError: any) {
-            console.error('Gemini Suggest API Error Detail:', JSON.stringify(apiError, null, 2));
+            console.error('Gemini Suggest API Ultimate Error:', apiError);
             return NextResponse.json({ 
-                error: '提案の生成中にエラーが発生しました。',
+                error: '提案の生成中にエラーが発生しました。APIキーの権限等をご確認ください。',
                 details: apiError.message 
             }, { status: 500 });
         }
