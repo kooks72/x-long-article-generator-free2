@@ -108,7 +108,16 @@ ${isMiddleLink ? '   ※ 見出し2の直後など、読者の興味が高まっ
             }
 
             if (!response) {
-                throw lastError || new Error('利用可能なAIモデルが見つかりませんでした。');
+                // 診断：利用可能なモデルをリストアップしてみる
+                let availableModelsStr = 'none';
+                try {
+                    const modelList = await genAIInstance.listModels();
+                    availableModelsStr = modelList.models.map(m => m.name).join(', ');
+                } catch (listErr) {
+                    availableModelsStr = `failed to list (${listErr instanceof Error ? listErr.message : 'unknown error'})`;
+                }
+
+                throw new Error(`利用可能なAIモデルが見つかりませんでした。このキーで認識されているモデル一覧: [${availableModelsStr}]`);
             }
 
             // 安全フィルターなどでブロックされた場合のハンドリング
