@@ -77,8 +77,12 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ suggestion: text });
         } catch (apiError: any) {
             console.error('Gemini Suggest API Ultimate Error:', apiError);
+            let message = '提案の生成中にエラーが発生しました。APIキーの権限等をご確認ください。';
+            if (apiError.message) {
+                message += ` (詳細: ${apiError.message})`;
+            }
             return NextResponse.json({ 
-                error: '提案の生成中にエラーが発生しました。APIキーの権限等をご確認ください。',
+                error: message,
                 details: apiError.message 
             }, { status: 500 });
         }

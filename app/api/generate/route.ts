@@ -122,7 +122,9 @@ ${isMiddleLink ? '   ※ 見出し2の直後など、読者の興味が高まっ
             let message = '記事の生成中にエラーが発生しました。APIキーの有効期限や権限を再度ご確認ください。';
             if (apiError.message?.includes('429')) {
                 message = 'リクエスト上限に達しました。しばらく待ってから再試行してください。';
-            } else if (apiError.message) {
+            }
+            // 詳細理由をメインのエラー文言に含める
+            if (apiError.message) {
                 message += ` (詳細: ${apiError.message})`;
             }
             return NextResponse.json({ error: message, details: apiError.message }, { status: 500 });
