@@ -60,12 +60,15 @@ export default function Home() {
         body: JSON.stringify({ keyword, apiKey }),
       });
 
-      if (!response.ok) throw new Error('提案に失敗しました');
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '提案に失敗しました');
+      }
       const data = await response.json();
       setWorries(data.suggestion);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      alert('エラーが発生しました。');
+      alert(error.message || 'エラーが発生しました。');
     } finally {
       setSuggesting(false);
     }
@@ -104,8 +107,8 @@ export default function Home() {
       const data = await response.json();
       setResult(data.content);
     } catch (error: any) {
-      console.error(error);
-      alert(error.message || 'エラーが発生しました。もう一度お試しください。');
+      console.error('Submit Error:', error);
+      alert(error.message || '記事の生成中にエラーが発生しました。再度お試しください。');
     } finally {
       setLoading(false);
     }
